@@ -1,10 +1,77 @@
 ================================================================================
+- V.7.0060.1049
+- Tue, 12 May 2026
+--------------------------------------------------------------------------------
+
+- New features
+    o
+
+- Bug fixes
+    o #4992267, hw-management-bmc: collapse override_dh_systemd_enable /
+      _start to a single bare call per package.  Each `dh_systemd_enable
+      -p... --name=X` call walks the package's $tmpdir/lib/systemd/system/
+      and emits a postinst-systemd-enable snippet for EVERY unit it finds --
+      `--name=X` controls which `debian/<pkg>.<name>.service` template
+      file to pick up, NOT which units the autoscript snippet targets
+      (debhelper 13 source: dh_systemd_enable line 211).  With 9 BMC
+      services and 9 explicit per-service calls, the generated postinst
+      contained 9 x 9 = 81 enable snippets.  On the AST2700 BMC each
+      `deb-systemd-helper enable` takes ~0.8 s, so the postinst alone
+      blocked dpkg for ~65 s during SONiC first-boot install (validated
+      against /var/log/dpkg.log: `configure hw-management-bmc` spanning
+      ~67 s, 18:38:49 -> 18:39:56).  The fix collapses each BMC override
+      to one `dh_systemd_*` call that takes the 9 service files as
+      positional arguments (preserving an explicit allow-list against
+      silent auto-enable of future BMC unit files).  Effect on the
+      generated postinst: exactly 9 unique `postinst-systemd-enable`
+      snippets (one per service, not 81), and no debhelper-emitted
+      synchronous `deb-systemd-invoke start` / `restart` block (those
+      are already suppressed by `--no-start --no-restart-after-upgrade`
+      from V.7.0060.1048).  The custom debian/hw-management-bmc.postinst
+      still queues HW-MGMT startup asynchronously via
+      `systemctl start --no-block` after dpkg returns, so the BMC chain
+      starts in the background while rc.local finishes and
+      serial-getty@ttyS12.service comes up on the first power-on.
+
+- Known issues and limitations:
+    o
+
+================================================================================
+- V.7.0060.1048
+- Tue, 12 May 2026
+--------------------------------------------------------------------------------
+
+- New features
+    o
+
+- Bug fixes
+    o #4992267, hw-management-bmc: stop blocking SONiC BMC first boot.
+      The hw-management-bmc package no longer starts BMC services synchronously
+      from its postinst (debian/rules: dh_systemd_start now passes --no-start
+      --no-restart-after-upgrade). A custom debian/hw-management-bmc.postinst
+      queues the HW-MGMT chain with `systemctl start --no-block` so dpkg is
+      not blocked by bmc_init_main (~40 s) when the package is installed from
+      SONiC rc.local on first boot. Also: BMC unit files now declare the
+      plat-specific-preps → early-config → early-i2c-init → init → boot-complete
+      chain via `Requires=` (was After=-only), so ad-hoc starts pull the whole
+      prerequisite chain into the same transaction in declared order.
+
+      OPERATOR NOTE: an `apt-get install hw-management-bmc=NEW` upgrade on a
+      running system now installs the new files and re-enables units but does
+      NOT automatically restart any HW-MGMT service. To pick up runtime
+      behaviour changes from the new binary, run
+      `systemctl restart hw-management-bmc-init.service` or reboot the BMC.
+
+- Known issues and limitations:
+    o
+
+================================================================================
 - V.7.0060.1047
 - Tue, 12 May 2026
 --------------------------------------------------------------------------------
 
 - New features
-    o 
+    o
 
 - Bug fixes
     o #N/A, hw-mgmt: kernel: bmc: patches: Update patches, 5533cbe
