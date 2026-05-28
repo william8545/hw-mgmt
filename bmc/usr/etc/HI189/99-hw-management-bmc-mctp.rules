@@ -1,6 +1,17 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
 #
-# MCTP over IRoT (mctpirot* net devices). RUN no-ops unless /usr/bin/mctp exists
-# and is executable. Installed to /lib/udev/rules.d/ by hw-management-bmc-plat-specific-preps.
-
-SUBSYSTEM=="net", ACTION=="add", KERNEL=="mctpirot*", NAME="%E{INTERFACE}", RUN+="/bin/sh -c '[ -x /usr/bin/mctp ] && { /usr/bin/mctp link set $env{INTERFACE} up; /usr/bin/mctp addr add 230 dev $env{INTERFACE}; }'"
+# MCTP over IRoT (mctpirot* net devices). Installed to /lib/udev/rules.d/ by
+# hw-management-bmc-plat-specific-preps.
+#
+# Issue #5016565: the MCTP EID is an AF_MCTP (family 45) address. If it lives in
+# the default network namespace, ifupdown2's global RTM_GETADDR dump fails to
+# decode it and aborts, so the BMC management interface (eth0) never gets DHCP.
+# To fix this WITHOUT modifying the shared ifupdown2, mctpirot* is moved into a
+# dedicated "mctp" network namespace and the EID is assigned there.
+#
+# This rule is the event source only; the single owner of MCTP link/EID setup is
+# hw-management-bmc-mctp-netns-isolate@<iface>.service, which does the move and the
+# EID assignment inside the netns. The "[ -x /usr/bin/mctp ]" guard defers the work
+# until the (lazy-installed) mctp deb is present; "--no-block" avoids a
+# udev<->systemd deadlock.
+SUBSYSTEM=="net", ACTION=="add", KERNEL=="mctpirot*", NAME="%E{INTERFACE}", RUN+="/bin/sh -c '[ -x /usr/bin/mctp ] && /bin/systemctl --no-block start hw-management-bmc-mctp-netns-isolate@$env{INTERFACE}.service'"

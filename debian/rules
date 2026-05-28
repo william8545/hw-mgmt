@@ -128,6 +128,10 @@ ifeq ($(with_bmc),1)
 	dh_systemd_enable -phw-management-bmc --name=hw-management-bmc-early-i2c-init
 	dh_systemd_enable -phw-management-bmc --name=hw-management-bmc-i2c-slave-setup
 	dh_systemd_enable -phw-management-bmc --name=hw-management-bmc-recovery-handler
+	# MCTP netns isolation (issue #5016565): udev-started template unit. Ship the
+	# unit file and ensure daemon-reload, but do NOT enable it at boot -- it is
+	# started on demand by 99-hw-management-bmc-mctp.rules.
+	dh_systemd_enable -phw-management-bmc --no-enable hw-management-bmc-mctp-netns-isolate@.service
 endif
 
 override_dh_systemd_start:

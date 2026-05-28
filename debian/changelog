@@ -1,3 +1,17 @@
+hw-management (1.mlnx.7.0060.1048) unstable; urgency=low
+
+  [ NVIDIA ]
+  * bmc: isolate the MCTP iROT interface into a dedicated "mctp" network
+    namespace so ifupdown2 (default netns) does not abort decoding the AF_MCTP
+    (family 45) address; restores automatic eth0 DHCP on NVIDIA SONiC-BMC
+    (Redmine #5016565). Adds hw-management-bmc-mctp-netns-isolate@.service plus
+    the mctp-ns-exec helper, and reworks 99-hw-management-bmc-mctp.rules to
+    trigger the service instead of configuring the EID in the default netns.
+    On package (re)install the udev "add" event is re-fired for already-present
+    mctpirot* devices so the fix applies without requiring a reboot.
+
+ -- William Tsai <willtsai@nvidia.com>  Thu, 28 May 2026 00:00:00 +0000
+
 hw-management (1.mlnx.7.0060.1047) unstable; urgency=low
   [ MLNX ] 
 
