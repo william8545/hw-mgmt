@@ -227,6 +227,17 @@ reload_udev_rules_after_deploy()
 	# Re-evaluate devices that hw-management udev rules care about (best-effort).
 	udevadm trigger --subsystem-match=i2c --action=change 2>/dev/null || true
 	udevadm trigger --subsystem-match=hwmon --action=change 2>/dev/null || true
+	# Re-fire the "add" event for any already-present MCTP iROT net device so the
+	# isolation rule (99-hw-management-bmc-mctp.rules) takes effect on the boot the
+	# package is (re)installed, not only after the next reboot.
+	# Scoped to mctpirot* syspaths so eth0/other net devices are NOT retriggered.
+	for _mctp_dev in /sys/class/net/mctpirot*; do
+		[ -e "$_mctp_dev" ] || continue
+		udevadm trigger --action=add "$_mctp_dev" 2>/dev/null || true
+	done
+	# Explicit success: this is the script's last function and the Requires= chain
+	# (early-config -> plat-specific-preps) breaks if it exits non-zero.
+	return 0
 }
 
 get_hwid
