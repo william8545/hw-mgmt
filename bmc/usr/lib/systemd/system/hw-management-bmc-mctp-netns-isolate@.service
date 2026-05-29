@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#
+# Move the MCTP iROT interface %i into a dedicated network namespace so that
+# ifupdown2 (which runs in the default netns) never decodes its AF_MCTP
+# (family 45) address and crashes.
+#
+# Started by 99-hw-management-bmc-mctp.rules on the netdev "add" event (only once
+# /usr/bin/mctp exists). Not enabled at boot -- udev is the single trigger.
+[Unit]
+Description=Isolate MCTP iROT interface %i in dedicated netns
+DefaultDependencies=no
+After=local-fs.target systemd-udevd.service
+# Best-effort ordering before the ifupdown2 run that brings up eth0. NOTE: this is
+# only honored when both jobs share a startup transaction; udev starts this unit
+# asynchronously (--no-block), so the ordering is NOT guaranteed. eth0 is safe
+# either way -- the AF_MCTP (family 45) address is only ever added INSIDE the mctp
+# netns, so even if this runs after interfaces-config the default netns never holds
+# a family-45 address for ifupdown2 to choke on. Deliberately NOT
+# Before=networking.service: the early loopback-only run is irrelevant to eth0.
+Before=interfaces-config.service sonic.target
+# Only meaningful once the mctp CLI is present (lazy-installed on first boot).
+ConditionPathExists=/usr/bin/mctp
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/hw-management-bmc-mctp-netns-isolate.sh %i
+SyslogIdentifier=hw-management-bmc-mctp-netns-isolate

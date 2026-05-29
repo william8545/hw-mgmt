@@ -1,0 +1,30 @@
+#!/bin/bash
+# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#
+# mctp-ns-exec -- run an MCTP/PLDM tool inside the isolated "mctp" network
+# namespace. On SONiC-BMC the MCTP iROT interface is moved out of the
+# default network namespace (see hw-management-bmc-mctp-netns-isolate), so MCTP
+# tooling must be invoked here. Examples:
+#
+#   mctp-ns-exec mctp addr
+#   mctp-ns-exec mctp route
+#   mctp-ns-exec pldm-fw inventory <eid>
+
+NS="mctp"
+
+if [ "$#" -lt 1 ]; then
+    echo "usage: mctp-ns-exec <command> [args...]" >&2
+    echo "       e.g. mctp-ns-exec pldm-fw inventory <eid>" >&2
+    exit 2
+fi
+
+if [ ! -e "/run/netns/${NS}" ]; then
+    echo "mctp-ns-exec: network namespace '${NS}' not present." >&2
+    echo "  MCTP may not be isolated yet (hw-management-bmc-mctp-netns-isolate)." >&2
+    echo "  Check: systemctl status 'hw-management-bmc-mctp-netns-isolate@*'" >&2
+    exit 1
+fi
+
+exec ip netns exec "${NS}" "$@"
